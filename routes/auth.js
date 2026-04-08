@@ -73,7 +73,7 @@ router.post('/register', async (req, res) => {
         };
 
         // 3. Send the Email
-        await transporter.sendMail(mailOptions);
+        // await transporter.sendMail(mailOptions);
         console.log(`Email successfully sent to ${user.email}`); // Just for your terminal to know it worked
 
         // ==========================================
