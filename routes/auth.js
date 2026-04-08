@@ -48,10 +48,12 @@ router.post('/register', async (req, res) => {
 
         // 1. Create the Mailman (Transporter)
         const transporter = nodemailer.createTransport({
-            service: 'gmail',
+            host: 'smtp.gmail.com',
+            port: 465,
+            secure: true,
             auth: {
-                user: process.env.EMAIL_USER, // Grabs from your .env vault
-                pass: process.env.EMAIL_PASS  // Grabs from your .env vault
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS
             }
         });
 
@@ -73,7 +75,7 @@ router.post('/register', async (req, res) => {
         };
 
         // 3. Send the Email
-        // await transporter.sendMail(mailOptions);
+        await transporter.sendMail(mailOptions);
         console.log(`Email successfully sent to ${user.email}`); // Just for your terminal to know it worked
 
         // ==========================================
@@ -248,7 +250,9 @@ router.post('/forgotpassword', async (req, res) => {
 
         // 3. Send the email using your existing Nodemailer setup
         const transporter = nodemailer.createTransport({
-            service: 'gmail',
+            host: 'smtp.gmail.com',
+            port: 465,
+            secure: true,
             auth: {
                 user: process.env.EMAIL_USER,
                 pass: process.env.EMAIL_PASS
