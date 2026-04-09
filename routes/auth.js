@@ -3,7 +3,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ==========================================
 // ROUTE: POST /api/auth/register
@@ -46,21 +47,12 @@ router.post('/register', async (req, res) => {
         // NEW: THE REAL EMAIL SENDER
         // ==========================================
 
-        // 1. Create the Mailman (Transporter)
-        const transporter = nodemailer.createTransport({
-            host: 'smtp.gmail.com',
-            port: 465,
-            secure: true,
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS
-            }
-        });
-
-        // 2. Write the Email
-        const mailOptions = {
-            from: `"AutoHub Security" <${process.env.EMAIL_USER}>`,
-            to: user.email, // Sends to whatever email they typed in the form!
+        // ==========================================
+        // NEW: MODERN RESEND API
+        // ==========================================
+        const { data, error } = await resend.emails.send({
+            from: 'AutoHub <onboarding@resend.dev>',
+            to: user.email,
             subject: 'AutoHub - Your Verification Code',
             html: `
                 <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #E0E0E0; border-radius: 8px; max-width: 500px; margin: 0 auto;">
@@ -72,13 +64,14 @@ router.post('/register', async (req, res) => {
                     <p style="font-size: 12px; color: #666;">If you did not request this, please ignore this email.</p>
                 </div>
             `
-        };
+        });
 
-        // 3. Send the Email
-        await transporter.sendMail(mailOptions);
-        console.log(`Email successfully sent to ${user.email}`); // Just for your terminal to know it worked
+        if (error) {
+            console.error('Resend Error:', error);
+            return res.status(500).json({ msg: 'Failed to send email API' });
+        }
 
-        // ==========================================
+        console.log(`Email successfully sent via Resend to ${user.email}`);
 
         // 4. Tell React to move to the verification page
         res.json({ msg: 'Registration successful. Please check your email for the code.' });
@@ -248,19 +241,9 @@ router.post('/forgotpassword', async (req, res) => {
         user.resetPasswordExpires = Date.now() + 15 * 60 * 1000; // 15 mins from now
         await user.save();
 
-        // 3. Send the email using your existing Nodemailer setup
-        const transporter = nodemailer.createTransport({
-            host: 'smtp.gmail.com',
-            port: 465,
-            secure: true,
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS
-            }
-        });
-
-        const mailOptions = {
-            from: `"AutoHub Security" <${process.env.EMAIL_USER}>`,
+        // 3. Send the email using the new Resend API
+        const { data, error } = await resend.emails.send({
+            from: 'AutoHub <onboarding@resend.dev>',
             to: user.email,
             subject: 'AutoHub - Password Reset Request',
             html: `
@@ -273,9 +256,14 @@ router.post('/forgotpassword', async (req, res) => {
                     <p style="font-size: 12px; color: #666;">If you didn't request this, ignore this email. Your password is safe.</p>
                 </div>
             `
-        };
+        });
 
-        await transporter.sendMail(mailOptions);
+        if (error) {
+            console.error('Resend Error:', error);
+            return res.status(500).json({ msg: 'Failed to send reset email' });
+        }
+
+        // Send success message to the frontend (keeps hackers guessing if the email exists)
         res.json({ msg: 'If that email exists, a reset code has been sent.' });
 
     } catch (err) {
